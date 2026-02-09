@@ -5,7 +5,7 @@ math library (Vec2 + Vec3) with a small CLI demo.
 
 How to run from repo root:
   g++ -std=c++14 -Wall -Wextra -pedantic lessons/lesson-05/main.cpp -o lessons/lesson-05/main
-  lessons/lesson-05/main
+  lessons/lesson-05/main;  lessons/lesson-05/main
 */
 
 #include <cmath>
@@ -67,14 +67,14 @@ public:
         return {};
     }
 
-    bool isEqual(VectorN<Dimension> vector1, VectorN<Dimension> vector2)
+    bool isEqual(const VectorN<Dimension> &vectorToCompare)
     {
         // if not same then false, but this is wrong idk what to do
-        if (Dimension != Dimension)
+        for (size_t i = 0; i < Dimension; ++i)
         {
-            return false;
+            if (components[i] != vectorToCompare.components[i])
+                return false;
         }
-        return (vector1.getMagnitude() == vector2.getMagnitude() && vector1.getUnitVector() == vector2.getUnitVector());
     }
 };
 

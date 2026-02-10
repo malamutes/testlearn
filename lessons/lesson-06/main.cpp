@@ -1,78 +1,113 @@
-/*
-Lesson 6 Objective:
-Master smart pointers, RAII, and move semantics by building a doubly-linked list
-with custom memory ownership. Learn move constructors, move assignment, and
-automatic resource cleanup.
-
-How to run from repo root:
-  g++ -std=c++14 -Wall -Wextra -pedantic -I wrappers/ lessons/lesson-06/main.cpp
-wrappers/wrappers.cpp -o lessons/lesson-06/main; lessons/lesson-06/main
-*/
-
-#include "wrappers.hpp"
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <fstream>
 #include <iostream>
-#include <limits>
-#include <memory>
+#include <vector>
 
-// Node template for doubly-linked list
-template <typename T> struct Node {
-  T data;
-  std::unique_ptr<Node<T>> next;
-  Node<T> *prev;
+const int WAV_FILE_LENGTH_TIME = 3; // 3 seconds
+const uint16_t BIT_DEPTH = 16;
+const uint32_t FORMAT_LENGTH = 16;
+const double SAMPLE_RATE_DOUBLE = 44100;
+const uint32_t SAMPLE_RATE = 44100;
+const uint16_t FORMAT_TYPE = 1;
+const uint16_t NUM_CHANNELS = 1;
+const double PI = 4.0 * std::atan(1.0);
+const int16_t MAX_VOLUME = 32767;
+const uint16_t BLOCK_ALIGN = BIT_DEPTH * NUM_CHANNELS / 8;
+const uint32_t BYTE_RATE = SAMPLE_RATE * BIT_DEPTH * NUM_CHANNELS / 8;
 
-  Node(const T &value) : data(value), next(nullptr), prev(nullptr) {}
-  Node(T &&value) : data(std::move(value)), next(nullptr), prev(nullptr) {}
+// https://docs.fileformat.com/audio/wav/
+
+#pragma pack(push, 1)
+struct WAV_Header {      // should be 44 bytes
+    char riff_marker[4]; // 4 bytes, RIFF
+    uint32_t file_size;
+    char file_type_header[4];    // for now only WAVE
+    char format_chunk_marker[4]; // "fmt "
+    uint32_t format_length;
+    uint16_t format_type;
+    uint16_t num_channels;
+    uint32_t sample_rate;
+    uint32_t byte_rate; //(Sample Rate * BitsPerSample * Channels) / 8
+    uint16_t block_align;
+    uint16_t bits_per_sample; // bit_depth
+    char data_chunk_header[4];
+    uint32_t data_size;
 };
+#pragma pop
 
-// TODO: Implement a DoublyLinkedList<T> class with:
-// 1) private members:
-//    - std::unique_ptr<Node<T>> head
-//    - Node<T>* tail (raw pointer is OK; owned by head)
-//    - size_t size
-//
-// 2) public methods:
-//    - Constructor (default, empty list)
-//    - Destructor (automatic cleanup via unique_ptr RAII)
-//    - push_back(const T& value) / push_back(T&& value) (move version)
-//    - push_front(const T& value) / push_front(T&& value)
-//    - pop_back() -> T (removes and returns last element)
-//    - pop_front() -> T (removes and returns first element)
-//    - T& front() / const T& front()
-//    - T& back() / const T& back()
-//    - size_t getSize() const
-//    - bool isEmpty() const
-//
-// 3) Move semantics:
-//    - Move constructor: DoublyLinkedList(DoublyLinkedList&& other)
-//    - Move assignment: operator=(DoublyLinkedList&& other)
-//    - Delete copy constructor and copy assignment (prevent shallow copies)
-//
-// 4) Iteration support (optional but recommended):
-//    - Implement a simple printList() const for testing
-//
-// Requirements:
-// - No raw new/delete in main(). All memory managed by std::unique_ptr.
-// - Prevent memory leaks: use RAII (unique_ptr cleans up on destruction).
-// - Implement move semantics to allow efficient list transfers.
-// - Input validation for pop operations on empty list (throw
-// std::out_of_range).
-// - No global variables.
-
-template <typename T> class DoublyLinkedList {
-private:
-  // TODO: Add private members here
-
-public:
-  // TODO: Implement constructors, destructor, and all methods
+struct WAV {
+    WAV_Header Header;
+    std::vector<int16_t> data_chunk;
 };
 
 int main() {
-  std::cout << "Lesson 6: Smart Pointers, RAII, and Move Semantics.\n";
+    std::ofstream waveOutputFile;
+    uint32_t totalSamples = SAMPLE_RATE * WAV_FILE_LENGTH_TIME; // basically total numbers needed
+    uint32_t dataSize = totalSamples * NUM_CHANNELS * BIT_DEPTH / 8;
+    uint32_t totalFileSize = dataSize + 36;
 
-  // TODO: Test your DoublyLinkedList implementation here.
-  // Example ideas:
-  // - Create a list, push elements
-  // - Test move semantics (move list to another)
-  // - Pop elements and print
-  // - Verify automatic cleanup on scope exit
+    double sample = 0;
+    double sample2 = 0;
+    std::vector<int16_t> soundOutputVector(totalSamples);
+
+    std::cout << "GENERATING WAVE NUMBERS" << std::endl;
+    std::cout << "================================" << std::endl;
+
+    waveOutputFile.open("lessons/lesson-06/soundOutputFile.txt");
+
+    for (uint32_t time = 0; time < totalSamples; time++) {
+        sample2 = std::sin(2 * PI * 440.0 * (time / SAMPLE_RATE_DOUBLE));
+
+        soundOutputVector[time] = (sample + sample2) * MAX_VOLUME / 1.5;
+    }
+
+    std::cout << "FINISHED" << std::endl;
+    std::cout << "================================" << std::endl;
+
+    waveOutputFile.close();
+
+    std::cout << "CLOSED FILE" << std::endl;
+    std::cout << "================================" << std::endl;
+
+    std::cout << "VECTOR ARRAY NUMBER: " << soundOutputVector.size() << std::endl;
+
+    WAV wavFile;
+    WAV_Header header;
+
+    std::memcpy(header.riff_marker, "RIFF", 4);
+    header.file_size = totalFileSize;
+    std::memcpy(header.file_type_header, "WAVE", 4);
+    std::memcpy(header.format_chunk_marker, "fmt ", 4);
+
+    header.format_length = 16;
+    header.format_type = 1; // PCM
+    header.num_channels = NUM_CHANNELS;
+    header.sample_rate = SAMPLE_RATE;
+    header.byte_rate = BYTE_RATE;
+    header.block_align = BLOCK_ALIGN;
+    header.bits_per_sample = BIT_DEPTH;
+
+    std::memcpy(header.data_chunk_header, "data", 4);
+    header.data_size = dataSize;
+
+    wavFile.Header = header;
+
+    wavFile.data_chunk = soundOutputVector;
+
+    std::cout << "WRITING TO WAV FILE" << std::endl;
+    std::cout << "================================" << std::endl;
+
+    std::ofstream wavOutputFile("lessons/lesson-06/output.wav", std::ios::binary);
+    wavOutputFile.write(reinterpret_cast<const char *>(&wavFile.Header), sizeof(wavFile.Header));
+    wavOutputFile.write(reinterpret_cast<const char *>(wavFile.data_chunk.data()),
+                        wavFile.data_chunk.size() * sizeof(int16_t));
+    wavOutputFile.close();
+
+    std::cout << "FINISHED WRITING TO WAV" << std::endl;
+    std::cout << "================================" << std::endl;
+    return 0;
 }

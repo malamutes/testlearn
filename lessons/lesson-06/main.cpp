@@ -51,7 +51,6 @@ int main() {
     uint32_t totalFileSize = dataSize + 36;
 
     double sample = 0;
-    double sample2 = 0;
     std::vector<int16_t> soundOutputVector(totalSamples);
 
     std::cout << "GENERATING WAVE NUMBERS" << std::endl;
@@ -60,9 +59,9 @@ int main() {
     waveOutputFile.open("lessons/lesson-06/soundOutputFile.txt");
 
     for (uint32_t time = 0; time < totalSamples; time++) {
-        sample2 = std::sin(2 * PI * 440.0 * (time / SAMPLE_RATE_DOUBLE));
+        sample = std::sin(2 * PI * 440.0 * (time / SAMPLE_RATE_DOUBLE));
 
-        soundOutputVector[time] = (sample + sample2) * MAX_VOLUME / 1.5;
+        soundOutputVector[time] = sample * MAX_VOLUME;
     }
 
     std::cout << "FINISHED" << std::endl;
